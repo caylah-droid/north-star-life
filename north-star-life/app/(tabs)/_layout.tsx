@@ -1,7 +1,11 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native'; // ✅ IMPORTANT
+import { Text } from 'react-native';
 import { useTheme } from '../../lib/store';
 import { C, K } from '../../lib/theme';
+
+function TabIcon({ icon, color }: { icon: string; color: string }) {
+  return <Text style={{ fontSize: 18, color }}>{icon}</Text>;
+}
 
 export default function TabsLayout() {
   const theme = useTheme();
@@ -15,8 +19,8 @@ export default function TabsLayout() {
           backgroundColor: theme === 'c' ? C.bg1 : K.bg1,
           borderTopColor: t.cardBorder,
           borderTopWidth: 1,
-          height: 72,
-          paddingBottom: 12,
+          height: 100,
+          paddingBottom: 36,
           paddingTop: 8,
         },
         tabBarActiveTintColor: t.accent,
@@ -33,16 +37,16 @@ export default function TabsLayout() {
         options={{
           title: 'TODAY',
           tabBarIcon: ({ color }) => (
-            <TabIcon icon={theme === 'c' ? '✦' : 'ᚱ'} color={color} theme={theme} />
+            <TabIcon icon="✦" color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="body"
         options={{
-          title: theme === 'c' ? 'BODY' : 'FORGE',
+          title: 'BODY',
           tabBarIcon: ({ color }) => (
-            <TabIcon icon={theme === 'c' ? '☽' : 'ᚦ'} color={color} theme={theme} />
+            <TabIcon icon={theme === 'c' ? '☽' : 'ᚦ'} color={color} />
           ),
         }}
       />
@@ -51,7 +55,7 @@ export default function TabsLayout() {
         options={{
           title: 'FREEDOM',
           tabBarIcon: ({ color }) => (
-            <TabIcon icon={theme === 'c' ? '◎' : 'ᚠ'} color={color} theme={theme} />
+            <TabIcon icon="◎" color={color} />
           ),
         }}
       />
@@ -60,24 +64,10 @@ export default function TabsLayout() {
         options={{
           title: 'LIFE',
           tabBarIcon: ({ color }) => (
-            <TabIcon icon={theme === 'c' ? '⊕' : '⊕'} color={color} theme={theme} />
+            <TabIcon icon="⊕" color={color} />
           ),
         }}
       />
     </Tabs>
-  );
-}
-
-function TabIcon({ icon, color, theme }: { icon: string; color: string; theme: string }) {
-  return (
-    <Text
-      style={{
-        fontSize: 18,
-        color,
-        fontFamily: theme === 'k' ? 'CinzelDecorative_400Regular' : undefined,
-      }}
-    >
-      {icon}
-    </Text>
   );
 }

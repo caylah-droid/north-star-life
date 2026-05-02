@@ -239,7 +239,12 @@ export const useStore = create<Store>((set, get) => ({
 export const useTheme = (): Theme => useStore((s) => s.profile?.theme ?? 'c');
 export const useProfile = () => useStore((s) => s.profile);
 export const useTodayLog = () => useStore((s) => s.todayLog);
-export const usePartner = () => useStore((s) => ({
-  profile: s.partnerProfile,
-  log: s.partnerLog,
-}));
+export const usePartnerProfile = () => useStore((s) => s.partnerProfile);
+export const usePartnerLog = () => useStore((s) => s.partnerLog);
+
+// Keep for backwards compat but stable now
+export const usePartner = () => {
+  const profile = usePartnerProfile();
+  const log = usePartnerLog();
+  return { profile, log };
+};
