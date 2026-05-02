@@ -1,77 +1,116 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Animated, Dimensions, RefreshControl,
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Animated,
+  RefreshControl,
+  TouchableOpacity,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useStore, useTheme, useProfile, useTodayLog, usePartner } from '../../lib/store';
-import { C, K, getDailyGreeting, getRank, getXpToNextRank, getRankProgress, PILLARS } from '../../lib/theme';
-import { supabase } from '../../lib/supabase';
-import { PillarKey } from '../../lib/supabase';
+
 import PillarCard from '../../components/PillarCard';
 import SeptemberCountdown from '../../components/SeptemberCountdown';
+import {
+  C, K, PILLARS, getDailyGreeting, getRank, getXpToNextRank, getRankProgress,
+} from '../../lib/theme';
+import {
+  useStore, useTheme, useProfile, useTodayLog, usePartner,
+} from '../../lib/store';
+import { PillarKey } from '../../lib/supabase';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-// Pre-compute star positions at module level — stable, no hooks, no re-renders
-const STARS = Array.from({ length: 60 }, (_, i) => ({
-  topPx: Math.random() * SCREEN_HEIGHT,
-  leftPx: Math.random() * SCREEN_WIDTH,
-  size: i % 4 === 0 ? 2.5 : 1.5,
+// ── Stable star data — generated once at module level ────────────────────────
+interface StarDatum {
+  top: number;
+  left: number;
+  size: number;
+  isTeal: boolean;
+  duration: number;
+  delay: number;
+  lo: number;
+  hi: number;
+}
+
+const ALL_STARS: StarDatum[] = Array.from({ length: 80 }, (_, i) => ({
+  top: Math.random() * SCREEN_H * 0.65,
+  left: Math.random() * SCREEN_W,
+  size: 0.8 + Math.random() * 2.2,
   isTeal: i % 4 === 0,
+  duration: 2000 + Math.random() * 4000,
+  delay: Math.random() * 5000,
+  lo: 0.08 + Math.random() * 0.18,
+  hi: i % 4 === 0 ? 0.7 + Math.random() * 0.3 : 0.35 + Math.random() * 0.5,
 }));
 
-export default function HomeScreen() {
+// ── Single star ──────────────────────────────────────────────────────────────
+function Star({ d, isCaylah }: { d: StarDatum; isCaylah: boolean }) {
+  const opacity = useRef(new Animated.Value(d.lo)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.delay(d.delay),
+        Animated.timing(opacity, { toValue: d.hi, duration: d.duration / 2, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: d.lo, duration: d.duration / 2, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
+
+  const color = d.isTeal && isCaylah ? C.accent : '#FFFFFF';
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: d.top,
+        left: d.left,
+        width: d.size,
+        height: d.size,
+        borderRadius: d.size / 2,
+        backgroundColor: color,
+        opacity,
+        shadowColor: color,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: d.isTeal && isCaylah ? 0.9 : 0.2,
+        shadowRadius: d.isTeal && isCaylah ? d.size * 2 : d.size,
+      }}
+    />
+  );
+}
+
+// ── Main screen ──────────────────────────────────────────────────────────────
+export default function TodayScreen() {
   const theme = useTheme();
   const profile = useProfile();
   const todayLog = useTodayLog();
   const { profile: partner, log: partnerLog } = usePartner();
-  const { loadTodayLog, loadPartner, loadProfile, togglePillar } = useStore();
+  const { loadProfile, loadTodayLog, loadPartner, togglePillar } = useStore();
+
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = theme === 'c' ? C : K;
-  const [refreshing, setRefreshing] = React.useState(false);
+  const isCaylah = theme === 'c';
 
-  // ── ALL hooks before any conditional return ─────────────────────────────────
-  const starAnims = useRef(
-    Array.from({ length: 60 }, () => new Animated.Value(0.2 + Math.random() * 0.6))
-  ).current;
-
-  // XP bar width as pixel value — string percentages are invalid in Animated.View
+  // XP bar animation
   const xpBarAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    loadTodayLog();
-    loadPartner();
-    startStarTwinkle();
-  }, []);
 
   useEffect(() => {
     if (!profile) return;
     const progress = getRankProgress(profile.xp);
-    const trackWidth = SCREEN_WIDTH - 40 - 32; // screen padding + card padding
-    Animated.timing(xpBarAnim, {
-      toValue: trackWidth * progress,
-      duration: 800,
-      useNativeDriver: false, // 'width' cannot use native driver
+    Animated.spring(xpBarAnim, {
+      toValue: progress,
+      tension: 80,
+      friction: 20,
+      useNativeDriver: false,
     }).start();
   }, [profile?.xp]);
-
-  useEffect(() => {
-    if (!profile?.partner_id) return;
-    const channel = supabase
-      .channel('partner-log')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'daily_logs',
-        filter: `user_id=eq.${profile.partner_id}`,
-      }, () => {
-        loadPartner();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [profile?.partner_id]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -79,97 +118,73 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, []);
 
-  function startStarTwinkle() {
-    starAnims.forEach((anim, i) => {
-      const duration = 2000 + Math.random() * 3000;
-      const delay = i * 80;
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(anim, { toValue: 0.08, duration, delay, useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0.85, duration, useNativeDriver: true }),
-        ])
-      ).start();
-    });
-  }
+  if (!profile) return null;
 
-  // ── Derived values ──────────────────────────────────────────────────────────
   const completedCount = todayLog
     ? (['move', 'nourish', 'mind', 'build'] as PillarKey[]).filter((k) => todayLog[k]).length
     : 0;
   const allComplete = completedCount === 4;
-  const greeting = profile ? getDailyGreeting(theme, profile.name) : '';
-  const rank = profile ? getRank(theme, profile.xp) : '';
-  const xpToNext = profile ? getXpToNextRank(profile.xp) : 0;
 
-  // ── Early return AFTER all hooks ────────────────────────────────────────────
-  if (!profile) return null;
+  const greeting = getDailyGreeting(theme, profile.name);
+  const rank = getRank(theme, profile.xp);
+  const xpToNext = getXpToNextRank(profile.xp);
 
-  const visibleStars = theme === 'c' ? STARS : STARS.slice(0, 20);
+  const stars = isCaylah ? ALL_STARS : ALL_STARS.slice(0, 22);
 
   return (
     <View style={styles.container}>
-      {/* Background gradient */}
+      {/* Background */}
       <LinearGradient
-        colors={theme === 'c' ? [C.bg0, C.bg1, C.bg2] : [K.bg0, K.bg1, K.bg2]}
+        colors={isCaylah ? [C.bg0, C.bg1, C.bg2] : [K.bg0, K.bg1, K.bg2]}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Stars — top/left as pixel numbers (RN does not accept string percentages here) */}
-      {visibleStars.map((s, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            styles.star,
-            {
-              top: s.topPx,
-              left: s.leftPx,
-              width: s.size,
-              height: s.size,
-              borderRadius: s.size / 2,
-              backgroundColor: s.isTeal && theme === 'c' ? C.accent : '#FFFFFF',
-              opacity: starAnims[i],
-              shadowColor: s.isTeal && theme === 'c' ? C.accent : '#fff',
-              shadowOpacity: s.isTeal && theme === 'c' ? 0.8 : 0.25,
-              shadowRadius: s.isTeal && theme === 'c' ? 5 : 2,
-            },
-          ]}
-        />
+      {/* Stars */}
+      {stars.map((d, i) => (
+        <Star key={i} d={d} isCaylah={isCaylah} />
       ))}
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={t.accent}
+          />
         }
       >
-        {/* ── Header ── */}
+        {/* ── HEADER ── */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={[styles.dateLabel, { color: t.textSecondary, fontFamily: t.fontUI }]}>
+              <Text style={[styles.dateLabel, { color: t.textMuted, fontFamily: t.fontUI }]}>
                 {new Date().toLocaleDateString('en-ZA', {
                   weekday: 'long', day: 'numeric', month: 'long',
                 }).toUpperCase()}
               </Text>
-              <Text style={[
-                styles.name,
-                {
-                  color: t.textPrimary,
-                  fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
-                },
-              ]}>
+              <Text style={[styles.name, {
+                color: t.textPrimary,
+                fontFamily: isCaylah ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
+                fontSize: isCaylah ? 28 : 20,
+                letterSpacing: isCaylah ? 0.3 : 0.08,
+              }]}>
                 {profile.name}
               </Text>
             </View>
 
-            {/* Partner dot cluster */}
+            {/* Partner cluster */}
             {partner && (
               <View style={styles.partnerCluster}>
                 <View style={[styles.partnerDot, {
-                  backgroundColor: theme === 'c' ? K.accent : C.accent,
+                  backgroundColor: isCaylah ? K.accent : C.accent,
+                  shadowColor: isCaylah ? K.accent : C.accent,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.6,
+                  shadowRadius: 4,
                 }]} />
-                <Text style={[styles.partnerLabel, { color: t.textMuted }]}>
+                <Text style={[styles.partnerName, { color: t.textMuted, fontFamily: t.fontUIReg }]}>
                   {partner.name.split(' ')[0]}
                 </Text>
                 <View style={styles.partnerPillars}>
@@ -178,8 +193,8 @@ export default function HomeScreen() {
                       key={p}
                       style={[styles.partnerPillarDot, {
                         backgroundColor: partnerLog?.[p]
-                          ? (theme === 'c' ? K.accent : C.accent)
-                          : t.textMuted + '40',
+                          ? (isCaylah ? K.accent : C.accent)
+                          : `${t.textMuted}40`,
                       }]}
                     />
                   ))}
@@ -188,20 +203,26 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Daily greeting */}
-          <Text style={[styles.dailyMessage, {
+          {/* Greeting */}
+          <Text style={[styles.greeting, {
             color: t.textSecondary,
-            fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'Raleway_400Regular',
-            fontStyle: theme === 'c' ? 'italic' : 'normal',
+            fontFamily: isCaylah ? 'Marcellus_400Regular' : t.fontUIReg,
+            fontStyle: isCaylah ? 'italic' : 'normal',
+            letterSpacing: isCaylah ? 0.2 : 1.5,
+            textTransform: isCaylah ? 'none' : 'uppercase',
           }]}>
             {greeting}
           </Text>
         </View>
 
-        {/* ── September Countdown ── */}
-        <SeptemberCountdown theme={theme} septemberDate={profile.september_date} />
+        {/* ── SEPTEMBER COUNTDOWN ── */}
+        <SeptemberCountdown
+          theme={theme}
+          septemberDate={profile.september_date}
+          currentStreak={profile.streak}
+        />
 
-        {/* ── Non-Negotiables ── */}
+        {/* ── NON-NEGOTIABLES ── */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionLabel, { color: t.textMuted, fontFamily: t.fontUI }]}>
             NON-NEGOTIABLES
@@ -214,7 +235,7 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <View style={styles.pillarsGrid}>
+        <View style={styles.pillarsStack}>
           {(Object.values(PILLARS) as {
             key: PillarKey; label: string; runeChar: string; runeName: string;
           }[]).map((pillar) => (
@@ -228,212 +249,173 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* ── All complete celebration ── */}
+        {/* ── ALL COMPLETE CELEBRATION ── */}
         {allComplete && (
-          <View style={[styles.completeCard, {
+          <View style={[styles.celebCard, {
             backgroundColor: t.cardBg,
             borderColor: t.accent,
             shadowColor: t.accent,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.4,
+            shadowRadius: 20,
+            elevation: 6,
           }]}>
-            <Text style={[styles.completeIcon, { color: t.accent }]}>✦</Text>
-            <Text style={[styles.completeTitle, {
+            <Text style={[styles.celebIcon, { color: t.accent }]}>✦</Text>
+            <Text style={[styles.celebTitle, {
               color: t.textPrimary,
-              fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
+              fontFamily: isCaylah ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
             }]}>
-              {theme === 'c' ? 'All tides aligned.' : 'The raid is complete.'}
+              {isCaylah ? 'All tides aligned.' : 'VALHALLA LOGGED'}
             </Text>
-            <Text style={[styles.completeSubtitle, { color: t.textSecondary }]}>
-              {theme === 'c' ? '+100 XP earned today' : '+100 XP — Valhalla records it.'}
+            <Text style={[styles.celebSub, {
+              color: t.textSecondary,
+              fontFamily: t.fontUIReg,
+            }]}>
+              {isCaylah
+                ? '+100 XP — the ocean remembers.'
+                : '+100 XP — Odin records it.'}
             </Text>
           </View>
         )}
 
-        {/* ── XP / Rank strip ── */}
+        {/* ── RANK / XP ── */}
         <View style={[styles.rankCard, { backgroundColor: t.cardBg, borderColor: t.cardBorder }]}>
           <View style={styles.rankRow}>
-            <Text style={[styles.rankName, { color: t.accent, fontFamily: t.fontUI }]}>
+            <Text style={[styles.rankName, {
+              color: t.textPrimary,
+              fontFamily: isCaylah ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
+              fontSize: isCaylah ? 15 : 12,
+            }]}>
               {rank}
             </Text>
-            <Text style={[styles.xpText, { color: t.xpGold, fontFamily: 'DMSans_400Regular' }]}>
+            <Text style={[styles.xpValue, { color: t.xpGold, fontFamily: 'DMSans_500Medium' }]}>
               {profile.xp.toLocaleString()} XP
             </Text>
           </View>
-          {/* Pixel-width bar — useNativeDriver: false required for layout props */}
+
           <View style={[styles.xpTrack, { backgroundColor: t.accentSoft }]}>
             <Animated.View
-              style={[styles.xpBar, {
-                width: xpBarAnim,
+              style={[styles.xpFill, {
+                width: xpBarAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
                 backgroundColor: t.accent,
                 shadowColor: t.accent,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.8,
+                shadowRadius: 4,
               }]}
             />
           </View>
-          <Text style={[styles.xpToNext, { color: t.textMuted }]}>
-            {xpToNext} XP to next rank
+
+          <Text style={[styles.xpNext, {
+            color: t.textMuted,
+            fontFamily: t.fontUIReg,
+            letterSpacing: isCaylah ? 0.3 : 0.8,
+          }]}>
+            {isCaylah ? `${xpToNext} XP to next rank` : `${xpToNext} XP TO NEXT RANK`}
           </Text>
         </View>
 
-        {/* ── Debrief button ── */}
+        {/* ── STREAK ── */}
+        <View style={styles.streakRow}>
+          {[
+            { num: profile.streak, label: 'DAY STREAK', color: t.accent },
+            { num: profile.longest_streak, label: 'BEST STREAK', color: t.textPrimary },
+          ].map((item, i) => (
+            <View key={i} style={[styles.streakCard, {
+              backgroundColor: t.cardBg,
+              borderColor: t.cardBorder,
+            }]}>
+              <Text style={[styles.streakNum, { color: item.color, fontFamily: 'DMSans_500Medium' }]}>
+                {item.num}
+              </Text>
+              <Text style={[styles.streakLabel, {
+                color: t.textMuted,
+                fontFamily: t.fontUI,
+                letterSpacing: isCaylah ? 1 : 1.5,
+              }]}>
+                {item.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── DEBRIEF CTA ── */}
         <TouchableOpacity
           style={[styles.debriefBtn, { borderColor: t.cardBorder }]}
           onPress={() => router.push('/debrief')}
-          activeOpacity={0.8}
+          activeOpacity={0.75}
         >
-          <Text style={[styles.debriefText, { color: t.textSecondary, fontFamily: t.fontUI }]}>
-            {theme === 'c' ? 'Close the chapter →' : 'END OF DAY LOG →'}
+          <Text style={[styles.debriefText, {
+            color: t.textSecondary,
+            fontFamily: t.fontUI,
+            letterSpacing: isCaylah ? 2 : 2.5,
+          }]}>
+            {isCaylah ? 'CLOSE THE CHAPTER →' : 'END OF DAY LOG →'}
           </Text>
         </TouchableOpacity>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 24 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  star: {
-    position: 'absolute',
-    shadowOffset: { width: 0, height: 0 },
-  },
-  scroll: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-  },
-  header: {
-    marginBottom: 24,
-    gap: 10,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  dateLabel: {
-    fontSize: 10,
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  name: {
-    fontSize: 28,
-    letterSpacing: 0.5,
-  },
-  partnerCluster: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  partnerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  partnerLabel: {
-    fontSize: 10,
-    fontFamily: 'Raleway_400Regular',
-    letterSpacing: 0.5,
-  },
-  partnerPillars: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  partnerPillarDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  dailyMessage: {
-    fontSize: 15,
-    lineHeight: 22,
-    letterSpacing: 0.2,
-  },
+  container: { flex: 1 },
+  scroll: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 20 },
+
+  header: { marginBottom: 14, gap: 8 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  dateLabel: { fontSize: 9, letterSpacing: 1.8, marginBottom: 2 },
+  name: { lineHeight: 34 },
+
+  partnerCluster: { alignItems: 'center', gap: 4, marginTop: 4 },
+  partnerDot: { width: 8, height: 8, borderRadius: 4 },
+  partnerName: { fontSize: 9, letterSpacing: 0.5 },
+  partnerPillars: { flexDirection: 'row', gap: 4 },
+  partnerPillarDot: { width: 5, height: 5, borderRadius: 2.5 },
+
+  greeting: { fontSize: 14, lineHeight: 22 },
+
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 8,
   },
-  sectionLabel: {
-    fontSize: 10,
-    letterSpacing: 2.5,
+  sectionLabel: { fontSize: 9, letterSpacing: 2.5 },
+  completionCount: { fontSize: 14 },
+
+  pillarsStack: { gap: 8, marginBottom: 10 },
+
+  celebCard: {
+    borderRadius: 12, borderWidth: 1, padding: 18,
+    alignItems: 'center', gap: 5, marginBottom: 10,
   },
-  completionCount: {
-    fontSize: 14,
-    letterSpacing: 0.5,
-  },
-  pillarsGrid: {
-    gap: 10,
-    marginBottom: 16,
-  },
-  completeCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 20,
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 16,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  completeIcon: {
-    fontSize: 24,
-  },
-  completeTitle: {
-    fontSize: 18,
-    letterSpacing: 0.5,
-  },
-  completeSubtitle: {
-    fontFamily: 'Raleway_400Regular',
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
+  celebIcon: { fontSize: 22 },
+  celebTitle: { fontSize: 16 },
+  celebSub: { fontSize: 11, letterSpacing: 0.8 },
+
   rankCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
-    gap: 8,
-    marginBottom: 12,
+    borderRadius: 12, borderWidth: 1,
+    padding: 14, gap: 7, marginBottom: 8,
   },
-  rankRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  rankRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  rankName: {},
+  xpValue: { fontSize: 12 },
+  xpTrack: { height: 3, borderRadius: 2, overflow: 'hidden' },
+  xpFill: { height: 3, borderRadius: 2 },
+  xpNext: { fontSize: 10 },
+
+  streakRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  streakCard: {
+    flex: 1, borderRadius: 12, borderWidth: 1,
+    padding: 12, alignItems: 'center', gap: 3,
   },
-  rankName: {
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  xpText: {
-    fontSize: 13,
-  },
-  xpTrack: {
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  xpBar: {
-    height: 3,
-    borderRadius: 2,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-  },
-  xpToNext: {
-    fontFamily: 'Raleway_400Regular',
-    fontSize: 11,
-    letterSpacing: 0.3,
-  },
-  debriefBtn: {
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  debriefText: {
-    fontSize: 12,
-    letterSpacing: 2,
-  },
+  streakNum: { fontSize: 26, lineHeight: 30 },
+  streakLabel: { fontSize: 8 },
+
+  debriefBtn: { borderRadius: 10, borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
+  debriefText: { fontSize: 10 },
 });

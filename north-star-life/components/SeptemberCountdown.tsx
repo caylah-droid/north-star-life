@@ -1,86 +1,124 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { C, K } from '../lib/theme';
 import { Theme } from '../lib/supabase';
 
 interface Props {
   theme: Theme;
-  septemberDate: string;
+  septemberDate: string; // ISO date string e.g. '2025-09-01'
+  currentStreak: number;
 }
 
-export default function SeptemberCountdown({ theme, septemberDate }: Props) {
+const ZANZIBAR_STREAK_REQUIRED = 30;
+
+export default function SeptemberCountdown({ theme, septemberDate, currentStreak }: Props) {
   const t = theme === 'c' ? C : K;
 
-  const now = new Date();
-  const target = new Date(septemberDate);
-  const diffMs = target.getTime() - now.getTime();
-  const diffDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-  const diffWeeks = Math.floor(diffDays / 7);
-  const remainderDays = diffDays % 7;
+  const { daysLeft, progressPct } = useMemo(() => {
+    const target = new Date(septemberDate);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const total = Math.round((target.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000);
+    const elapsed = Math.round((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000);
+    const left = Math.max(0, Math.round((target.getTime() - now.getTime()) / 86400000));
+    const pct = Math.min(1, elapsed / total);
+    return { daysLeft: left, progressPct: pct };
+  }, [septemberDate]);
 
-  const totalDays = Math.ceil(
-    (target.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const elapsed = totalDays - diffDays;
-  const progress = Math.min(1, Math.max(0, elapsed / totalDays));
-
-  const isReached = diffDays === 0;
-
-  const label = theme === 'c'
-    ? isReached ? 'The tide has turned. Zanzibar awaits.' : 'Until the ocean'
-    : isReached ? 'The raid begins. Valhalla is close.' : 'Until the conquest';
+  const zanzibarUnlocked = currentStreak >= ZANZIBAR_STREAK_REQUIRED;
+  const streakToUnlock = Math.max(0, ZANZIBAR_STREAK_REQUIRED - currentStreak);
 
   return (
-    <View style={[styles.card, { backgroundColor: t.cardBg, borderColor: t.cardBorder }]}>
+    <View style={[styles.card, {
+      backgroundColor: t.cardBg,
+      borderColor: t.cardBorder,
+    }]}>
+      {/* Kyle top accent line */}
+      {theme === 'k' && (
+        <View style={[styles.topAccent, { backgroundColor: K.accent }]} />
+      )}
+
       <View style={styles.row}>
-        <View>
-          <Text style={[styles.label, { color: t.textMuted, fontFamily: t.fontUI }]}>
-            {label.toUpperCase()}
+        {/* Left: countdown */}
+        <View style={styles.left}>
+          <Text style={[styles.label, {
+            color: t.textMuted,
+            fontFamily: t.fontUI,
+            letterSpacing: theme === 'k' ? 2 : 1.5,
+          }]}>
+            {theme === 'c' ? 'SEPTEMBER COUNTDOWN' : 'DEPARTURE CLOCK'}
           </Text>
-          <View style={styles.numberRow}>
-            {!isReached && (
-              <>
-                <Text style={[styles.bigNumber, {
-                  color: t.accent,
-                  fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
-                }]}>
-                  {diffDays}
-                </Text>
-                <Text style={[styles.unit, { color: t.textSecondary }]}>days</Text>
-              </>
-            )}
-            {isReached && (
-              <Text style={[styles.reachedText, { color: t.accent, fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular' }]}>
-                ✦ NOW
-              </Text>
-            )}
+
+          <View style={styles.daysRow}>
+            <Text style={[styles.daysNum, {
+              color: t.accent,
+              fontFamily: 'DMSans_500Medium',
+            }]}>
+              {daysLeft}
+            </Text>
+            <Text style={[styles.daysUnit, {
+              color: t.textMuted,
+              fontFamily: t.fontUI,
+            }]}>
+              {' DAYS'}
+            </Text>
           </View>
-          {!isReached && diffWeeks > 0 && (
-            <Text style={[styles.breakdown, { color: t.textMuted }]}>
-              {diffWeeks}w {remainderDays}d · {new Date(septemberDate).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
+
+          {/* Progress bar */}
+          <View style={[styles.track, { backgroundColor: t.accentSoft }]}>
+            <View style={[styles.fill, {
+              width: `${Math.round(progressPct * 100)}%` as any,
+              backgroundColor: t.accent,
+              shadowColor: t.accent,
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.7,
+              shadowRadius: 4,
+              elevation: 2,
+            }]} />
+          </View>
+        </View>
+
+        {/* Right: destination */}
+        <View style={styles.right}>
+          <Text style={[styles.label, {
+            color: t.textMuted,
+            fontFamily: t.fontUI,
+            letterSpacing: theme === 'k' ? 2 : 1.5,
+          }]}>
+            {theme === 'c' ? 'DESTINATION' : 'FIRST RAID'}
+          </Text>
+
+          <Text style={[styles.destName, {
+            color: t.textPrimary,
+            fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
+            fontSize: theme === 'k' ? 12 : 15,
+          }]}>
+            {theme === 'c' ? 'Kendwa' : 'Zanzibar'}
+          </Text>
+
+          <Text style={[styles.destSub, {
+            color: t.textMuted,
+            fontFamily: t.fontUIReg,
+          }]}>
+            {theme === 'c' ? '🌊 Zanzibar' : '30-day streak'}
+          </Text>
+
+          {zanzibarUnlocked ? (
+            <Text style={[styles.unlockText, {
+              color: t.accent,
+              fontFamily: 'DMSans_500Medium',
+            }]}>
+              ✦ UNLOCKED
+            </Text>
+          ) : (
+            <Text style={[styles.unlockText, {
+              color: t.xpGold,
+              fontFamily: 'DMSans_500Medium',
+            }]}>
+              {streakToUnlock} days →
             </Text>
           )}
         </View>
-
-        {/* Arc progress visual */}
-        <View style={styles.progressVisual}>
-          <Text style={[styles.progressPercent, {
-            color: t.accent,
-            fontFamily: 'DMSans_500Medium',
-          }]}>
-            {Math.round(progress * 100)}%
-          </Text>
-          <Text style={[styles.progressLabel, { color: t.textMuted }]}>there</Text>
-        </View>
-      </View>
-
-      {/* Progress bar */}
-      <View style={[styles.track, { backgroundColor: t.accentSoft }]}>
-        <View style={[styles.fill, {
-          width: `${progress * 100}%`,
-          backgroundColor: t.accent,
-          shadowColor: t.accentGlow,
-        }]} />
       </View>
     </View>
   );
@@ -90,65 +128,68 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     borderWidth: 1,
-    padding: 16,
-    gap: 12,
-    marginBottom: 20,
+    padding: 14,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  topAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    opacity: 0.4,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  label: {
-    fontSize: 10,
-    letterSpacing: 2,
-    marginBottom: 6,
-  },
-  numberRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+  left: {
+    flex: 1,
     gap: 6,
   },
-  bigNumber: {
-    fontSize: 42,
-    lineHeight: 48,
+  right: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
-  unit: {
-    fontFamily: 'Raleway_400Regular',
-    fontSize: 14,
-    marginBottom: 4,
+  label: {
+    fontSize: 8,
+    letterSpacing: 1.5,
   },
-  breakdown: {
-    fontFamily: 'Raleway_400Regular',
+  daysRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  daysNum: {
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  daysUnit: {
     fontSize: 11,
-    letterSpacing: 0.3,
-    marginTop: 2,
-  },
-  reachedText: {
-    fontSize: 32,
-  },
-  progressVisual: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  progressPercent: {
-    fontSize: 22,
-  },
-  progressLabel: {
-    fontFamily: 'Raleway_400Regular',
-    fontSize: 10,
-    letterSpacing: 1,
+    lineHeight: 32,
   },
   track: {
     height: 2,
     borderRadius: 1,
     overflow: 'hidden',
+    marginTop: 2,
   },
   fill: {
     height: 2,
     borderRadius: 1,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+  },
+  destName: {
+    lineHeight: 20,
+  },
+  destSub: {
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  unlockText: {
+    fontSize: 10,
+    letterSpacing: 1,
+    marginTop: 2,
   },
 });

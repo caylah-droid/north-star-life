@@ -13,6 +13,7 @@
     "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo-google-fonts/marcellus": "^0.4.1",
     "@expo-google-fonts/raleway": "^0.4.2",
+    "@expo/ngrok": "^4.1.0",
     "@supabase/supabase-js": "^2.105.1",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.13",
