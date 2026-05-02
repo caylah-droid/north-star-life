@@ -12,7 +12,15 @@ import { PillarKey } from '../../lib/supabase';
 import PillarCard from '../../components/PillarCard';
 import SeptemberCountdown from '../../components/SeptemberCountdown';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Pre-compute star positions at module level — stable, no hooks, no re-renders
+const STARS = Array.from({ length: 60 }, (_, i) => ({
+  topPx: Math.random() * SCREEN_HEIGHT,
+  leftPx: Math.random() * SCREEN_WIDTH,
+  size: i % 4 === 0 ? 2.5 : 1.5,
+  isTeal: i % 4 === 0,
+}));
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -24,32 +32,32 @@ export default function HomeScreen() {
   const t = theme === 'c' ? C : K;
   const [refreshing, setRefreshing] = React.useState(false);
 
-  // Star twinkle refs — bioluminescent background
+  // ── ALL hooks before any conditional return ─────────────────────────────────
   const starAnims = useRef(
-    Array.from({ length: theme === 'c' ? 60 : 20 }, () => new Animated.Value(0.3 + Math.random() * 0.7))
+    Array.from({ length: 60 }, () => new Animated.Value(0.2 + Math.random() * 0.6))
   ).current;
+
+  // XP bar width as pixel value — string percentages are invalid in Animated.View
+  const xpBarAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadTodayLog();
     loadPartner();
     startStarTwinkle();
-    setupRealtimePartner();
   }, []);
 
-  function startStarTwinkle() {
-    starAnims.forEach((anim, i) => {
-      const delay = i * 120;
-      const duration = 2000 + Math.random() * 3000;
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(anim, { toValue: 0.15, duration, delay, useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0.9, duration, useNativeDriver: true }),
-        ])
-      ).start();
-    });
-  }
+  useEffect(() => {
+    if (!profile) return;
+    const progress = getRankProgress(profile.xp);
+    const trackWidth = SCREEN_WIDTH - 40 - 32; // screen padding + card padding
+    Animated.timing(xpBarAnim, {
+      toValue: trackWidth * progress,
+      duration: 800,
+      useNativeDriver: false, // 'width' cannot use native driver
+    }).start();
+  }, [profile?.xp]);
 
-  function setupRealtimePartner() {
+  useEffect(() => {
     if (!profile?.partner_id) return;
     const channel = supabase
       .channel('partner-log')
@@ -62,9 +70,8 @@ export default function HomeScreen() {
         loadPartner();
       })
       .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  }
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.partner_id]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -72,67 +79,86 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, []);
 
+  function startStarTwinkle() {
+    starAnims.forEach((anim, i) => {
+      const duration = 2000 + Math.random() * 3000;
+      const delay = i * 80;
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: 0.08, duration, delay, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0.85, duration, useNativeDriver: true }),
+        ])
+      ).start();
+    });
+  }
+
+  // ── Derived values ──────────────────────────────────────────────────────────
   const completedCount = todayLog
     ? (['move', 'nourish', 'mind', 'build'] as PillarKey[]).filter((k) => todayLog[k]).length
     : 0;
   const allComplete = completedCount === 4;
-
   const greeting = profile ? getDailyGreeting(theme, profile.name) : '';
   const rank = profile ? getRank(theme, profile.xp) : '';
   const xpToNext = profile ? getXpToNextRank(profile.xp) : 0;
-  const rankProgress = profile ? getRankProgress(profile.xp) : 0;
 
+  // ── Early return AFTER all hooks ────────────────────────────────────────────
   if (!profile) return null;
 
-  const STAR_DATA = useRef(
-    Array.from({ length: theme === 'c' ? 60 : 20 }, (_, i) => ({
-      top: Math.random() * 100,
-      left: Math.random() * 100,
-      size: i % 4 === 0 ? 2.5 : 1.5,
-      isTeal: i % 4 === 0 && theme === 'c',
-    }))
-  ).current;
+  const visibleStars = theme === 'c' ? STARS : STARS.slice(0, 20);
 
   return (
-    <View style={[styles.container, { backgroundColor: t.bg0 }]}>
+    <View style={styles.container}>
       {/* Background gradient */}
       <LinearGradient
         colors={theme === 'c' ? [C.bg0, C.bg1, C.bg2] : [K.bg0, K.bg1, K.bg2]}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Stars */}
-      {STAR_DATA.map((s, i) => (
+      {/* Stars — top/left as pixel numbers (RN does not accept string percentages here) */}
+      {visibleStars.map((s, i) => (
         <Animated.View
           key={i}
-          style={[styles.star, {
-            top: `${s.top}%`,
-            left: `${s.left}%`,
-            width: s.size,
-            height: s.size,
-            borderRadius: s.size,
-            backgroundColor: s.isTeal ? C.accent : '#FFFFFF',
-            opacity: starAnims[i],
-            shadowColor: s.isTeal ? C.accentGlow : '#fff',
-            shadowOpacity: s.isTeal ? 0.9 : 0.3,
-            shadowRadius: s.isTeal ? 4 : 2,
-          }]}
+          style={[
+            styles.star,
+            {
+              top: s.topPx,
+              left: s.leftPx,
+              width: s.size,
+              height: s.size,
+              borderRadius: s.size / 2,
+              backgroundColor: s.isTeal && theme === 'c' ? C.accent : '#FFFFFF',
+              opacity: starAnims[i],
+              shadowColor: s.isTeal && theme === 'c' ? C.accent : '#fff',
+              shadowOpacity: s.isTeal && theme === 'c' ? 0.8 : 0.25,
+              shadowRadius: s.isTeal && theme === 'c' ? 5 : 2,
+            },
+          ]}
         />
       ))}
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accent} />
+        }
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={[styles.greeting, { color: t.textSecondary, fontFamily: t.fontUI }]}>
-                {new Date().toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
+              <Text style={[styles.dateLabel, { color: t.textSecondary, fontFamily: t.fontUI }]}>
+                {new Date().toLocaleDateString('en-ZA', {
+                  weekday: 'long', day: 'numeric', month: 'long',
+                }).toUpperCase()}
               </Text>
-              <Text style={[styles.name, { color: t.textPrimary, fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular' }]}>
+              <Text style={[
+                styles.name,
+                {
+                  color: t.textPrimary,
+                  fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
+                },
+              ]}>
                 {profile.name}
               </Text>
             </View>
@@ -140,7 +166,9 @@ export default function HomeScreen() {
             {/* Partner dot cluster */}
             {partner && (
               <View style={styles.partnerCluster}>
-                <View style={[styles.partnerDot, { backgroundColor: theme === 'c' ? K.accent : C.accent }]} />
+                <View style={[styles.partnerDot, {
+                  backgroundColor: theme === 'c' ? K.accent : C.accent,
+                }]} />
                 <Text style={[styles.partnerLabel, { color: t.textMuted }]}>
                   {partner.name.split(' ')[0]}
                 </Text>
@@ -151,7 +179,7 @@ export default function HomeScreen() {
                       style={[styles.partnerPillarDot, {
                         backgroundColor: partnerLog?.[p]
                           ? (theme === 'c' ? K.accent : C.accent)
-                          : t.textMuted + '30',
+                          : t.textMuted + '40',
                       }]}
                     />
                   ))}
@@ -160,7 +188,7 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Daily message */}
+          {/* Daily greeting */}
           <Text style={[styles.dailyMessage, {
             color: t.textSecondary,
             fontFamily: theme === 'c' ? 'Marcellus_400Regular' : 'Raleway_400Regular',
@@ -170,10 +198,10 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* September countdown */}
+        {/* ── September Countdown ── */}
         <SeptemberCountdown theme={theme} septemberDate={profile.september_date} />
 
-        {/* Non-Negotiables */}
+        {/* ── Non-Negotiables ── */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionLabel, { color: t.textMuted, fontFamily: t.fontUI }]}>
             NON-NEGOTIABLES
@@ -187,7 +215,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.pillarsGrid}>
-          {(Object.values(PILLARS) as { key: PillarKey; label: string; runeChar: string; runeName: string }[]).map((pillar) => (
+          {(Object.values(PILLARS) as {
+            key: PillarKey; label: string; runeChar: string; runeName: string;
+          }[]).map((pillar) => (
             <PillarCard
               key={pillar.key}
               pillar={pillar}
@@ -198,12 +228,12 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* All complete celebration */}
+        {/* ── All complete celebration ── */}
         {allComplete && (
           <View style={[styles.completeCard, {
             backgroundColor: t.cardBg,
             borderColor: t.accent,
-            shadowColor: t.accentGlow,
+            shadowColor: t.accent,
           }]}>
             <Text style={[styles.completeIcon, { color: t.accent }]}>✦</Text>
             <Text style={[styles.completeTitle, {
@@ -218,7 +248,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* XP / Rank strip */}
+        {/* ── XP / Rank strip ── */}
         <View style={[styles.rankCard, { backgroundColor: t.cardBg, borderColor: t.cardBorder }]}>
           <View style={styles.rankRow}>
             <Text style={[styles.rankName, { color: t.accent, fontFamily: t.fontUI }]}>
@@ -228,12 +258,13 @@ export default function HomeScreen() {
               {profile.xp.toLocaleString()} XP
             </Text>
           </View>
+          {/* Pixel-width bar — useNativeDriver: false required for layout props */}
           <View style={[styles.xpTrack, { backgroundColor: t.accentSoft }]}>
             <Animated.View
               style={[styles.xpBar, {
-                width: `${rankProgress * 100}%`,
+                width: xpBarAnim,
                 backgroundColor: t.accent,
-                shadowColor: t.accentGlow,
+                shadowColor: t.accent,
               }]}
             />
           </View>
@@ -242,7 +273,7 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Debrief button */}
+        {/* ── Debrief button ── */}
         <TouchableOpacity
           style={[styles.debriefBtn, { borderColor: t.cardBorder }]}
           onPress={() => router.push('/debrief')}
@@ -266,7 +297,6 @@ const styles = StyleSheet.create({
   star: {
     position: 'absolute',
     shadowOffset: { width: 0, height: 0 },
-    elevation: 0,
   },
   scroll: {
     paddingTop: 60,
@@ -281,7 +311,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  greeting: {
+  dateLabel: {
     fontSize: 10,
     letterSpacing: 2,
     marginBottom: 4,
@@ -344,7 +374,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 16,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.5,
     shadowRadius: 20,
     elevation: 8,
   },

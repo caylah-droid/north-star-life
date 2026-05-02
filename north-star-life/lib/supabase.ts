@@ -45,7 +45,7 @@ export interface DailyLog {
   build: boolean;
   all_complete: boolean;
   xp_earned: number;
-  miss_reasons: MissReason[];
+  miss_reasons: MissReasonEntry[];
   story_line: string;
   win_log: string;
   created_at: string;
@@ -53,6 +53,12 @@ export interface DailyLog {
 
 export type MissReason = 'Energy' | 'Time' | 'Avoidance' | 'Life';
 export type PillarKey = 'move' | 'nourish' | 'mind' | 'build';
+
+// A single miss log entry stored in jsonb
+export interface MissReasonEntry {
+  pillar: PillarKey;
+  reason: MissReason;
+}
 
 export interface Destination {
   id: string;

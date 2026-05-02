@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, Profile, DailyLog, PillarKey, MissReason } from './supabase';
+import { supabase, Profile, DailyLog, PillarKey, MissReason, MissReasonEntry } from './supabase';
 import { Theme } from './supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -171,8 +171,8 @@ export const useStore = create<Store>((set, get) => ({
     const { todayLog, profile } = get();
     if (!todayLog || !profile) return;
 
-    const existingReasons = todayLog.miss_reasons as { pillar: string; reason: string }[];
-    const newReasons = [...existingReasons, { pillar, reason }];
+    const newEntry: MissReasonEntry = { pillar, reason };
+    const newReasons: MissReasonEntry[] = [...todayLog.miss_reasons, newEntry];
     const xpBonus = 20; // honest miss log
 
     await supabase
@@ -189,7 +189,7 @@ export const useStore = create<Store>((set, get) => ({
       .eq('id', profile.id);
 
     set({
-      todayLog: { ...todayLog, miss_reasons: newReasons as MissReason[], xp_earned: todayLog.xp_earned + xpBonus },
+      todayLog: { ...todayLog, miss_reasons: newReasons, xp_earned: todayLog.xp_earned + xpBonus },
       profile: { ...profile, xp: profile.xp + xpBonus },
     });
   },

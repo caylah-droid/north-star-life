@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { C } from '../../lib/theme';
+
+const { width: SW, height: SH } = Dimensions.get('screen');
+
+const STARS = Array.from({ length: 40 }, (_, i) => ({
+  top: Math.random() * SH,
+  left: Math.random() * SW,
+  opacity: 0.1 + Math.random() * 0.5,
+  size: i % 4 === 0 ? 2.5 : 1.5,
+}));
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -34,33 +43,41 @@ export default function LoginScreen() {
     }
 
     if (mode === 'signup') {
-      // New user → onboarding
       router.replace('/onboarding');
     }
-    // Login → _layout handles redirect
   }
 
   return (
     <LinearGradient colors={[C.bg0, C.bg1, C.bg2]} style={styles.container}>
-      {/* Star field — lightweight */}
       {STARS.map((s, i) => (
-        <View key={i} style={[styles.star, { top: s.top, left: s.left, opacity: s.opacity, width: s.size, height: s.size, borderRadius: s.size }]} />
+        <View
+          key={i}
+          style={[
+            styles.star,
+            {
+              top: s.top,
+              left: s.left,
+              opacity: s.opacity,
+              width: s.size,
+              height: s.size,
+              borderRadius: s.size / 2,
+            },
+          ]}
+        />
       ))}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.inner}
       >
-        {/* Logo / wordmark */}
         <View style={styles.header}>
-          <Text style={styles.star_char}>✦</Text>
+          <Text style={styles.starChar}>✦</Text>
           <Text style={styles.title}>North Star Life</Text>
           <Text style={styles.subtitle}>
             {mode === 'login' ? 'Welcome back.' : 'The journey begins.'}
           </Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
           <TextInput
             style={styles.input}
@@ -103,7 +120,7 @@ export default function LoginScreen() {
           >
             <Text style={styles.toggleText}>
               {mode === 'login'
-                ? "First time? Create account"
+                ? 'First time? Create account'
                 : 'Already have an account? Sign in'}
             </Text>
           </TouchableOpacity>
@@ -113,14 +130,6 @@ export default function LoginScreen() {
   );
 }
 
-// Simple star data — pre-computed, no animation lib needed at auth screen
-const STARS = Array.from({ length: 40 }, (_, i) => ({
-  top: `${Math.random() * 100}%`,
-  left: `${Math.random() * 100}%`,
-  opacity: 0.1 + Math.random() * 0.5,
-  size: i % 4 === 0 ? 2.5 : 1.5,
-}));
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -128,7 +137,7 @@ const styles = StyleSheet.create({
   },
   star: {
     position: 'absolute',
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
   },
   inner: {
     flex: 1,
@@ -139,7 +148,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 48,
   },
-  star_char: {
+  starChar: {
     fontSize: 28,
     color: C.accent,
     marginBottom: 12,
@@ -180,9 +189,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 6,
-    shadowColor: C.accentGlow,
+    shadowColor: C.accent,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.6,
     shadowRadius: 16,
     elevation: 8,
   },

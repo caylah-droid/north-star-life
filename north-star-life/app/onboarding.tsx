@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Dimensions, ActivityIndicator, Alert,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -9,12 +9,11 @@ import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { C, K } from '../lib/theme';
 
-const { width } = Dimensions.get('window');
 
-type Step = 0 | 1 | 2 | 3;
+const TOTAL_STEPS = 4;
 
 export default function OnboardingScreen() {
-  const [step, setStep] = useState<Step>(0);
+  const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [theme, setTheme] = useState<'c' | 'k'>('c');
   const [identity, setIdentity] = useState('');
@@ -222,7 +221,7 @@ export default function OnboardingScreen() {
         {step > 0 && (
           <TouchableOpacity
             style={styles.backBtn}
-            onPress={() => setStep((s) => (s - 1) as Step)}
+            onPress={() => setStep((s) => Math.max(0, s - 1))}
           >
             <Text style={[styles.backText, { color: t.textMuted }]}>← Back</Text>
           </TouchableOpacity>
@@ -234,7 +233,7 @@ export default function OnboardingScreen() {
             shadowColor: t.accentGlow,
             flex: step === 0 ? 1 : 0,
           }]}
-          onPress={isLast ? finish : () => setStep((s) => (s + 1) as Step)}
+          onPress={isLast ? finish : () => setStep((s) => Math.min(TOTAL_STEPS - 1, s + 1))}
           disabled={loading}
           activeOpacity={0.85}
         >
@@ -267,7 +266,7 @@ const styles = StyleSheet.create({
   dot: {
     height: 6,
     borderRadius: 3,
-    transition: 'width 0.3s',
+
   },
   content: {
     flex: 1,
