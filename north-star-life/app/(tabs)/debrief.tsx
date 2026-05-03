@@ -6,10 +6,10 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useStore, useTheme, useProfile, useTodayLog } from '../lib/store';
-import { C, K } from '../lib/theme';
-import { PillarKey, MissReason } from '../lib/supabase';
-import { supabase } from '../lib/supabase';
+import { useStore, useTheme, useProfile, useTodayLog } from '../../lib/store';
+import { C, K } from '../../lib/theme';
+import { PillarKey, MissReason } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 const { width: SW, height: SH } = Dimensions.get('screen');
 

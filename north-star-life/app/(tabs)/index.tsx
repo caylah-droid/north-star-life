@@ -24,66 +24,14 @@ import { PillarKey } from '../../lib/supabase';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-// ── Stable star data — generated once at module level ────────────────────────
-interface StarDatum {
-  top: number;
-  left: number;
-  size: number;
-  isTeal: boolean;
-  duration: number;
-  delay: number;
-  lo: number;
-  hi: number;
-}
-
-const ALL_STARS: StarDatum[] = Array.from({ length: 20 }, (_, i) => ({
-  top: Math.random() * SCREEN_H * 0.65,
+// ── Static stars — no animation, no memory overhead ─────────────────────────
+const STARS = Array.from({ length: 18 }, (_, i) => ({
+  top: Math.random() * SCREEN_H * 0.6,
   left: Math.random() * SCREEN_W,
-  size: 0.8 + Math.random() * 2.2,
+  size: 1 + (i % 3),
   isTeal: i % 4 === 0,
-  duration: 2000 + Math.random() * 4000,
-  delay: Math.random() * 5000,
-  lo: 0.08 + Math.random() * 0.18,
-  hi: i % 4 === 0 ? 0.7 + Math.random() * 0.3 : 0.35 + Math.random() * 0.5,
+  opacity: 0.15 + (i % 5) * 0.08,
 }));
-
-// ── Single star ──────────────────────────────────────────────────────────────
-function Star({ d, isCaylah }: { d: StarDatum; isCaylah: boolean }) {
-  const opacity = useRef(new Animated.Value(d.lo)).current;
-
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.delay(d.delay),
-        Animated.timing(opacity, { toValue: d.hi, duration: d.duration / 2, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: d.lo, duration: d.duration / 2, useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, []);
-
-  const color = d.isTeal && isCaylah ? C.accent : '#FFFFFF';
-
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        top: d.top,
-        left: d.left,
-        width: d.size,
-        height: d.size,
-        borderRadius: d.size / 2,
-        backgroundColor: color,
-        opacity,
-        shadowColor: color,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: d.isTeal && isCaylah ? 0.9 : 0.2,
-        shadowRadius: d.isTeal && isCaylah ? d.size * 2 : d.size,
-      }}
-    />
-  );
-}
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 export default function TodayScreen() {
@@ -98,8 +46,13 @@ export default function TodayScreen() {
   const t = theme === 'c' ? C : K;
   const isCaylah = theme === 'c';
 
-  // XP bar animation
+  // XP bar animation — single value, no per-star loops
   const xpBarAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    loadTodayLog();
+    loadPartner();
+  }, []);
 
   useEffect(() => {
     if (!profile) return;
@@ -137,7 +90,22 @@ export default function TodayScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Stars disabled temporarily */}
+      {/* Static stars — no Animated, no OOM */}
+      {STARS.map((s, i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            top: s.top,
+            left: s.left,
+            width: s.size,
+            height: s.size,
+            borderRadius: s.size / 2,
+            backgroundColor: s.isTeal && isCaylah ? C.accent : '#FFFFFF',
+            opacity: s.opacity,
+          }}
+        />
+      ))}
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -163,7 +131,6 @@ export default function TodayScreen() {
                 color: t.textPrimary,
                 fontFamily: isCaylah ? 'Marcellus_400Regular' : 'CinzelDecorative_400Regular',
                 fontSize: isCaylah ? 28 : 20,
-                letterSpacing: isCaylah ? 0.3 : 0.08,
               }]}>
                 {profile.name}
               </Text>
@@ -174,10 +141,6 @@ export default function TodayScreen() {
               <View style={styles.partnerCluster}>
                 <View style={[styles.partnerDot, {
                   backgroundColor: isCaylah ? K.accent : C.accent,
-                  shadowColor: isCaylah ? K.accent : C.accent,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.6,
-                  shadowRadius: 4,
                 }]} />
                 <Text style={[styles.partnerName, { color: t.textMuted, fontFamily: t.fontUIReg }]}>
                   {partner.name.split(' ')[0]}
@@ -203,8 +166,6 @@ export default function TodayScreen() {
             color: t.textSecondary,
             fontFamily: isCaylah ? 'Marcellus_400Regular' : t.fontUIReg,
             fontStyle: isCaylah ? 'italic' : 'normal',
-            letterSpacing: isCaylah ? 0.2 : 1.5,
-            textTransform: isCaylah ? 'none' : 'uppercase',
           }]}>
             {greeting}
           </Text>
@@ -304,11 +265,7 @@ export default function TodayScreen() {
             />
           </View>
 
-          <Text style={[styles.xpNext, {
-            color: t.textMuted,
-            fontFamily: t.fontUIReg,
-            letterSpacing: isCaylah ? 0.3 : 0.8,
-          }]}>
+          <Text style={[styles.xpNext, { color: t.textMuted, fontFamily: t.fontUIReg }]}>
             {isCaylah ? `${xpToNext} XP to next rank` : `${xpToNext} XP TO NEXT RANK`}
           </Text>
         </View>
@@ -316,21 +273,17 @@ export default function TodayScreen() {
         {/* ── STREAK ── */}
         <View style={styles.streakRow}>
           {[
-            { num: profile.streak, label: 'DAY STREAK', color: t.accent },
-            { num: profile.longest_streak, label: 'BEST STREAK', color: t.textPrimary },
+            { num: profile.streak, label: 'DAY STREAK' },
+            { num: profile.longest_streak, label: 'BEST STREAK' },
           ].map((item, i) => (
             <View key={i} style={[styles.streakCard, {
               backgroundColor: t.cardBg,
               borderColor: t.cardBorder,
             }]}>
-              <Text style={[styles.streakNum, { color: item.color, fontFamily: 'DMSans_500Medium' }]}>
+              <Text style={[styles.streakNum, { color: t.accent, fontFamily: 'DMSans_500Medium' }]}>
                 {item.num}
               </Text>
-              <Text style={[styles.streakLabel, {
-                color: t.textMuted,
-                fontFamily: t.fontUI,
-                letterSpacing: isCaylah ? 1 : 1.5,
-              }]}>
+              <Text style={[styles.streakLabel, { color: t.textMuted, fontFamily: t.fontUI }]}>
                 {item.label}
               </Text>
             </View>
@@ -343,11 +296,7 @@ export default function TodayScreen() {
           onPress={() => router.push('/debrief')}
           activeOpacity={0.75}
         >
-          <Text style={[styles.debriefText, {
-            color: t.textSecondary,
-            fontFamily: t.fontUI,
-            letterSpacing: isCaylah ? 2 : 2.5,
-          }]}>
+          <Text style={[styles.debriefText, { color: t.textSecondary, fontFamily: t.fontUI }]}>
             {isCaylah ? 'CLOSE THE CHAPTER →' : 'END OF DAY LOG →'}
           </Text>
         </TouchableOpacity>
@@ -412,5 +361,5 @@ const styles = StyleSheet.create({
   streakLabel: { fontSize: 8 },
 
   debriefBtn: { borderRadius: 10, borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
-  debriefText: { fontSize: 10 },
+  debriefText: { fontSize: 10, letterSpacing: 2 },
 });
