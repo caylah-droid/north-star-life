@@ -1,54 +1,89 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { View, ActivityIndicator } from 'react-native';
+import {
+  useFonts,
+  Marcellus_400Regular,
+} from '@expo-google-fonts/marcellus';
+import {
+  Raleway_400Regular,
+  Raleway_600SemiBold,
+  Raleway_700Bold,
+} from '@expo-google-fonts/raleway';
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+} from '@expo-google-fonts/dm-sans';
+import {
+  CinzelDecorative_400Regular,
+} from '@expo-google-fonts/cinzel-decorative';
+import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
-
-// TEMP: Hardcoded profile for development — remove when auth is ready
-const DEV_PROFILE = {
-  id: 'dev-user',
-  name: 'Caylah',
-  theme: 'c' as const,
-  partner_id: null,
-  streak: 7,
-  longest_streak: 12,
-  xp: 340,
-  september_date: '2025-09-01',
-  income_current: 45000,
-  income_target: 100000,
-  savings_current: 80000,
-  identity_statement: 'explores the world freely, builds income online, and creates a life rich in experiences.',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
-
-const DEV_LOG = {
-  id: 'dev-log',
-  user_id: 'dev-user',
-  date: new Date().toISOString().split('T')[0],
-  move: false,
-  nourish: false,
-  mind: false,
-  build: false,
-  all_complete: false,
-  xp_earned: 0,
-  miss_reasons: [],
-  story_line: '',
-  win_log: '',
-  created_at: new Date().toISOString(),
-};
+import { C } from '../lib/theme';
 
 export default function RootLayout() {
-  const { setProfile, setTodayLog, setLoggedIn } = useStore();
+  const { loadProfile, loadTodayLog, setLoggedIn } = useStore();
+  const [authReady, setAuthReady] = useState(false);
+
+  const [fontsLoaded] = useFonts({
+    Marcellus_400Regular,
+    Raleway_400Regular,
+    Raleway_600SemiBold,
+    Raleway_700Bold,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    CinzelDecorative_400Regular,
+  });
 
   useEffect(() => {
-    setProfile(DEV_PROFILE);
-    setTodayLog(DEV_LOG);
-    setLoggedIn(true);
-    // Wait for Root Layout to mount before navigating
-    setTimeout(() => {
-      router.replace('/(tabs)');
-    }, 100);
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        loadProfile().then(() => {
+          loadTodayLog().then(() => {
+            setLoggedIn(true);
+            setAuthReady(true);
+            router.replace('/(tabs)');
+          });
+        });
+      } else {
+        setAuthReady(true);
+        router.replace('/(auth)/login');
+      }
+    });
+
+    // Listen for auth changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          await loadProfile();
+          await loadTodayLog();
+          setLoggedIn(true);
+          router.replace('/(tabs)');
+        } else if (event === 'SIGNED_OUT') {
+          setLoggedIn(false);
+          router.replace('/(auth)/login');
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  // Block render until fonts + auth both ready
+  if (!fontsLoaded || !authReady) {
+    return (
+      <View style={{
+        flex: 1,
+        backgroundColor: C.bg0,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <ActivityIndicator color={C.accent} size="small" />
+      </View>
+    );
+  }
 
   return (
     <>
@@ -56,7 +91,13 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="debrief" options={{ presentation: 'modal' }} />
+        <Stack.Screen
+          name="debrief"
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
+        />
         <Stack.Screen name="onboarding" />
       </Stack>
     </>
