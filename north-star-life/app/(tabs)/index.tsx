@@ -36,7 +36,7 @@ interface StarDatum {
   hi: number;
 }
 
-const ALL_STARS: StarDatum[] = Array.from({ length: 80 }, (_, i) => ({
+const ALL_STARS: StarDatum[] = Array.from({ length: 20 }, (_, i) => ({
   top: Math.random() * SCREEN_H * 0.65,
   left: Math.random() * SCREEN_W,
   size: 0.8 + Math.random() * 2.2,
@@ -129,8 +129,6 @@ export default function TodayScreen() {
   const rank = getRank(theme, profile.xp);
   const xpToNext = getXpToNextRank(profile.xp);
 
-  const stars = isCaylah ? ALL_STARS : ALL_STARS.slice(0, 22);
-
   return (
     <View style={styles.container}>
       {/* Background */}
@@ -139,10 +137,7 @@ export default function TodayScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Stars */}
-      {stars.map((d, i) => (
-        <Star key={i} d={d} isCaylah={isCaylah} />
-      ))}
+      {/* Stars disabled temporarily */}
 
       <ScrollView
         contentContainerStyle={styles.scroll}
