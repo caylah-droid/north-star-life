@@ -309,3 +309,50 @@ Update the Current Status section after every session.
 | Session 1 | Full design system, psychology, vision, schema designed |
 | Session 2 | v1-v9 React artifacts — design iterated to final state |
 | Session 3 | Project setup: Supabase created, Codespace created, deps installing |
+
+## Current Status
+
+### Done ✅
+- Full design system (v9 React artifact)
+- Morning briefing screen — complete and running
+- Supabase project created
+- GitHub repo created + all code committed
+- Dependencies installed
+- lib/supabase.ts — all types
+- lib/theme.ts — C/K tokens, ranks, greetings
+- lib/store.ts — full Zustand store with async actions
+- app/_layout.tsx — real auth wired, fonts loaded
+- app/(auth)/login.tsx — complete
+- app/onboarding.tsx — complete
+- app/(tabs)/index.tsx — full Morning Briefing
+- app/(tabs)/_layout.tsx — tab bar
+- components/PillarCard.tsx — Pearl Ring + Rune Ring
+- components/SeptemberCountdown.tsx — complete
+- app/debrief.tsx — full Evening Debrief with Claude story generation
+- app/(tabs)/body.tsx — themed stub
+- app/(tabs)/freedom.tsx — themed stub
+- app/(tabs)/life.tsx — themed stub
+- schema.sql — generated (needs applying to Supabase)
+
+### In Progress ⏳
+- Apply schema.sql to Supabase
+- Test full loop on physical device via Expo Go
+
+### Not Started ❌
+- Freedom Hub (income tracker, Freedom Score)
+- Body Hub
+- Life Hub (map, couple space)
+- Real-time partner sync (live dot updates)
+- Streak engine (server-side streak calculation)
+- Zanzibar unlock system
+- Push notifications
+
+---
+
+## Session Log
+| Date | What was done |
+|---|---|
+| Session 1 | Full design system, psychology, vision, schema designed |
+| Session 2 | v1-v9 React artifacts — design iterated to final state |
+| Session 3 | Project setup: Supabase created, Codespace created, deps installing |
+| Session 4 | Real auth wired, Evening Debrief built, tab stubs, schema.sql generated |
