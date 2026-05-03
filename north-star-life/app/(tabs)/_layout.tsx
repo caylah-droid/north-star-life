@@ -26,7 +26,6 @@ export default function TabsLayout() {
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.textMuted,
         tabBarLabelStyle: {
-          fontFamily: 'Raleway_600SemiBold',
           fontSize: 9,
           letterSpacing: 1.5,
         },
@@ -36,9 +35,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'TODAY',
-          tabBarIcon: ({ color }) => (
-            <TabIcon icon="✦" color={color} />
-          ),
+          tabBarIcon: ({ color }) => <TabIcon icon="✦" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -51,21 +48,26 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="mind"
+        options={{
+          title: 'MIND',
+          tabBarIcon: ({ color }) => (
+            <TabIcon icon={theme === 'c' ? 'ॐ' : 'ᚹ'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="freedom"
         options={{
           title: 'FREEDOM',
-          tabBarIcon: ({ color }) => (
-            <TabIcon icon="◎" color={color} />
-          ),
+          tabBarIcon: ({ color }) => <TabIcon icon="◎" color={color} />,
         }}
       />
       <Tabs.Screen
         name="life"
         options={{
           title: 'LIFE',
-          tabBarIcon: ({ color }) => (
-            <TabIcon icon="⊕" color={color} />
-          ),
+          tabBarIcon: ({ color }) => <TabIcon icon="⊕" color={color} />,
         }}
       />
     </Tabs>
