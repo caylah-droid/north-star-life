@@ -15,14 +15,14 @@ export default function RootLayout() {
   useEffect(() => {
     // Load fonts manually — more reliable in preview builds
     Font.loadAsync({
-      Marcellus_400Regular: require('@expo-google-fonts/marcellus/Marcellus_400Regular.ttf'),
-      Raleway_400Regular: require('@expo-google-fonts/raleway/Raleway_400Regular.ttf'),
-      Raleway_600SemiBold: require('@expo-google-fonts/raleway/Raleway_600SemiBold.ttf'),
-      Raleway_700Bold: require('@expo-google-fonts/raleway/Raleway_700Bold.ttf'),
-      DMSans_400Regular: require('@expo-google-fonts/dm-sans/DMSans_400Regular.ttf'),
-      DMSans_500Medium: require('@expo-google-fonts/dm-sans/DMSans_500Medium.ttf'),
-      CinzelDecorative_400Regular: require('@expo-google-fonts/cinzel-decorative/CinzelDecorative_400Regular.ttf'),
-    }).catch(() => {}).finally(() => setFontsReady(true));
+  Marcellus_400Regular: require('@expo-google-fonts/marcellus/400Regular/Marcellus_400Regular.ttf'),
+  Raleway_400Regular: require('@expo-google-fonts/raleway/400Regular/Raleway_400Regular.ttf'),
+  Raleway_600SemiBold: require('@expo-google-fonts/raleway/600SemiBold/Raleway_600SemiBold.ttf'),
+  Raleway_700Bold: require('@expo-google-fonts/raleway/700Bold/Raleway_700Bold.ttf'),
+  DMSans_400Regular: require('@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf'),
+  DMSans_500Medium: require('@expo-google-fonts/dm-sans/500Medium/DMSans_500Medium.ttf'),
+  CinzelDecorative_400Regular: require('@expo-google-fonts/cinzel-decorative/400Regular/CinzelDecorative_400Regular.ttf'),
+}).catch(() => {}).finally(() => setFontsReady(true));
   }, []);
 
   useEffect(() => {
